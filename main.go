@@ -1,7 +1,9 @@
 package main
 
+import paths "here/findingPaths"
+
 func main() {
-	
+	paths.PathFinder()
 
 	//read arguments and check for errors
 
