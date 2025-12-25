@@ -1,9 +1,29 @@
 package main
 
-import paths "here/findingPaths"
+import (
+	"fmt"
+	paths "here/findingPaths"
+	"os"
+)
 
 func main() {
-	paths.PathFinder()
+
+
+	stationsGraph, idToStations, _ := parseMap(os.Args[1]) 
+	//start := os.Args[2] // change to int!!!
+	//end := os.Args[3]   //change to int!!!
+
+	start := 0
+	end := 4
+	trains := 9
+
+	fmt.Println(stationsGraph)
+	fmt.Println(start)
+	fmt.Println(end)
+
+	paths := paths.PathFinder(stationsGraph, start, end)
+	trains.MoveTrains(paths, idToStations, 9)
+
 
 	//read arguments and check for errors
 

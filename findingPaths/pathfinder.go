@@ -102,21 +102,29 @@ func bfs(graph [][]int, start int, end int) []int {
 
 
 	
-func PathFinder() {
+func PathFinder(graph [][]int, start int, end int) [][]int {
 	var paths [][]int
 
-graph := [][]int{
-    {1, 2, 4},   // 0: connected to 1,2,4
-    {0, 7},      // 1: connected to 0,7
-    {0, 3},      // 2: connected to 0,3
-    {2, 7},      // 3: connected to 2,7
-    {0, 5},      // 4: connected to 0,5
-    {4, 6},      // 5: connected to 4,6
-    {5, 7},      // 6: connected to 5,7
-    {1, 3, 6},   // 7: connected to 1,3,6
+/*graph := [][]int{
+    {5, 9, 1},      // 0: jungle connected to grasslands, farms, green_belt
+    {0, 2},         // 1: green_belt connected to jungle, village
+    {1, 3},         // 2: village connected to green_belt, mountain
+    {4, 2, 8, 9},   // 3: mountain connected to treetop, village, wetlands, farms
+    {3, 13},        // 4: treetop connected to mountain, desert
+    {0, 6},         // 5: grasslands connected to jungle, suburbs
+    {5, 7},         // 6: suburbs connected to grasslands, clouds
+    {6, 8},         // 7: clouds connected to suburbs, wetlands
+    {7, 13, 3},     // 8: wetlands connected to clouds, desert, mountain
+    {0, 10, 3},     // 9: farms connected to jungle, downtown, mountain
+    {9, 11},        // 10: downtown connected to farms, metropolis
+    {10, 12},       // 11: metropolis connected to downtown, industrial
+    {11, 13},       // 12: industrial connected to metropolis, desert
+    {12, 8, 4},     // 13: desert connected to industrial, wetlands, treetop
 }
+
 start := 0
-end := 7
+end := 13
+*/
 	path := bfs(graph, start, end)
 	paths = append(paths, path)
 	for path != nil {
@@ -126,6 +134,8 @@ end := 7
 	}
 	fmt.Printf("Shortest path from node %d to %d: %d\n", start, end, path)
 	fmt.Println("Paths from shortes to longest:", paths)
+
+	return paths
 }
 
 func ignoreUsedStations(graph [][]int, path []int) [][]int {
