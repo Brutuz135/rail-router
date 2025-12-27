@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"regexp"
 	"slices"
@@ -11,7 +10,6 @@ import (
 )
 
 func parseMap(mapFile string) ([][]int, (map[int]string), (map[string]int)) {
-	//var stationGraph [][]int
 	var counter int
 	IdToStations := make(map[int]string)
 	StationsToId := make(map[string]int)
@@ -49,20 +47,19 @@ func parseMap(mapFile string) ([][]int, (map[int]string), (map[string]int)) {
 		if stationGraph[station1] == nil {
 			stationGraph[station1] = append(stationGraph[station1], station2)
 
-		} else if slices.Contains(stationGraph[station1], station2) {
+		} else if !slices.Contains(stationGraph[station1], station2) {
 			stationGraph[station1] = append(stationGraph[station1], station2)
 		}
 
 		if stationGraph[station2] == nil {
 			stationGraph[station2] = append(stationGraph[station2], station1)
 
-		} else if slices.Contains(stationGraph[station2], station1) {
+		} else if !slices.Contains(stationGraph[station2], station1) {
 			stationGraph[station2] = append(stationGraph[station2], station1)
 		}
 	}
 	
 
 	
-	fmt.Println(stationGraph)
 	return stationGraph, IdToStations, StationsToId
 }

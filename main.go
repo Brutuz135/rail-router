@@ -3,26 +3,28 @@ package main
 import (
 	"fmt"
 	paths "here/findingPaths"
+	moves "here/movingTrains"
 	"os"
+	"strconv"
 )
 
 func main() {
 
 
-	stationsGraph, idToStations, _ := parseMap(os.Args[1]) 
-	//start := os.Args[2] // change to int!!!
-	//end := os.Args[3]   //change to int!!!
+	stationsGraph, idToStations, stationsToId := parseMap(os.Args[1]) 
 
-	start := 0
-	end := 4
+	fmt.Println("graph:", stationsGraph)
+	fmt.Println("idToStationsi:", idToStations)
+	fmt.Println("stationsToId", stationsToId)
+	return
+
+	start, _ := strconv.Atoi(os.Args[2]) // change to int!!!
+	end, _ := strconv.Atoi(os.Args[3])   //change to int!!!
+
 	trains := 9
 
-	fmt.Println(stationsGraph)
-	fmt.Println(start)
-	fmt.Println(end)
-
 	paths := paths.PathFinder(stationsGraph, start, end)
-	trains.MoveTrains(paths, idToStations, 9)
+	moves.MoveTrains(paths, idToStations, trains)
 
 
 	//read arguments and check for errors
