@@ -1,3 +1,3 @@
-module here
+module main
 
 go 1.25.1

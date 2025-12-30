@@ -35,8 +35,7 @@ func parseMap(mapFile string) ([][]int, (map[int]string), (map[string]int)) {
 	}
 	stationGraph := make([][]int, counter)
 
-
-	re1 := regexp.MustCompile(`^([A-Za-z0-9_]+)-([A-Za-z0-9_]+)$`)
+	re1 := regexp.MustCompile(`([A-Za-z0-9_]+)\s*-\s*([A-Za-z0-9_]+)`)
 	matchSationConnections := re1.FindAllStringSubmatch(connectionsStr, -1)
 
 	for _, m := range matchSationConnections {

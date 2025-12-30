@@ -1,40 +1,33 @@
 package main
 
 import (
-	"fmt"
-	paths "here/findingPaths"
-	moves "here/movingTrains"
+	paths "main/findingPaths"
+	moves "main/movingTrains"
 	"os"
 	"strconv"
 )
 
 func main() {
+	//Incomplete, needs to handle errors gracefully. But the main structure works.
 
 
-	stationsGraph, idToStations, stationsToId := parseMap(os.Args[1]) 
+	// get infromation sortet from the given map.
+	//stationsGraph slice of ints containing all the connections of stationsGraph
+	//idToStations a map to convert from int id to string sations, there is also stationsToId if needed.
+	stationsGraph, idToStations, _ := parseMap(os.Args[1]) 
 
-	fmt.Println("graph:", stationsGraph)
-	fmt.Println("idToStationsi:", idToStations)
-	fmt.Println("stationsToId", stationsToId)
-	return
+	//Handle arguments
+	start, _ := strconv.Atoi(os.Args[2]) // now works is station is given like a number, but needs to handle names
+	end, _ := strconv.Atoi(os.Args[3])    // now works is station is given like a number, but needs to handle names
+	trains, _ := strconv.Atoi(os.Args[4])
 
-	start, _ := strconv.Atoi(os.Args[2]) // change to int!!!
-	end, _ := strconv.Atoi(os.Args[3])   //change to int!!!
-
-	trains := 9
-
+	//finds all possible paths, with totally different in between stations and sorts them from shortest to longest
 	paths := paths.PathFinder(stationsGraph, start, end)
+	
+	//writes out paths to a file acording to how many trains
+	//Incomplete, Should write in columns and acording when train is sent. row represents a turn
 	moves.MoveTrains(paths, idToStations, trains)
-
-
-	//read arguments and check for errors
-
-
-	//call pathFinder(), networkfile, start, end, (number of trains???)
-
-
-	//call trainCender() send and track trains trough optimal routes.
-
-	//end function
+	
+	//maybe here print out the train_turns file?
 
 }
