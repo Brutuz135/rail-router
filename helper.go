@@ -5,26 +5,32 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-
 	//"golang.org/x/telemetry/counter"
 )
 
-func parseMap(mapFile string) ([][]int, (map[int]string), (map[string]int)) {
+func parseMap(mapFile string) ([][]int, map[int]string, map[string]int) {
 	var counter int
 	IdToStations := make(map[int]string)
 	StationsToId := make(map[string]int)
 
-	data, _ := os.ReadFile(mapFile)
+	data, err := os.ReadFile(mapFile)
+	if err != nil {
+		panic("Failed to read map file")
+	}
+
 	mapInfo := string(data)
-	
 
 	idx := strings.Index(mapInfo, "connections:")
+	if idx == -1 {
+		panic("Invalid map format: missing connections section")
+	}
+	
 	stationsStr := mapInfo[:idx]
-	connectionsStr := mapInfo[idx + 12:]
+	connectionsStr := mapInfo[idx+12:]
 
 	re := regexp.MustCompile(`([A-Za-z0-9_]+)\s*,\s*(\d+)\s*,\s*(\d+)`)
 	matchStationInfo := re.FindAllStringSubmatch(stationsStr, -1)
-	
+
 	for i, m := range matchStationInfo {
 		station := m[1]
 		counter += 1
@@ -41,7 +47,6 @@ func parseMap(mapFile string) ([][]int, (map[int]string), (map[string]int)) {
 	for _, m := range matchSationConnections {
 		station1 := StationsToId[m[1]]
 		station2 := StationsToId[m[2]]
-		
 
 		if stationGraph[station1] == nil {
 			stationGraph[station1] = append(stationGraph[station1], station2)
@@ -57,8 +62,6 @@ func parseMap(mapFile string) ([][]int, (map[int]string), (map[string]int)) {
 			stationGraph[station2] = append(stationGraph[station2], station1)
 		}
 	}
-	
 
-	
 	return stationGraph, IdToStations, StationsToId
 }
