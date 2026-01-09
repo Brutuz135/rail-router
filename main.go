@@ -1,33 +1,67 @@
 package main
 
 import (
-	paths "main/findingPaths"
-	moves "main/movingTrains"
+	"fmt"
 	"os"
 	"strconv"
+
+	paths "main/findingPaths"
+	helpers "main/helpers"
+	moves "main/movingTrains"
 )
 
 func main() {
-	//Incomplete, needs to handle errors gracefully. But the main structure works.
+	args := os.Args[1:]
+	if len(args) != 4 {
+		fmt.Fprintln(os.Stderr, "Error: incorrect number of command line arguments")
+		os.Exit(1)
+	}
 
+	filepath := args[0]
+	startName := args[1]
+	endName := args[2]
+	numTrainStr := args[3]
 
-	// get infromation sortet from the given map.
-	//stationsGraph slice of ints containing all the connections of stationsGraph
-	//idToStations a map to convert from int id to string sations, there is also stationsToId if needed.
-	stationsGraph, idToStations, _ := parseMap(os.Args[1]) 
+	// Parse number of trains
+	trains, err := strconv.Atoi(numTrainStr)
+	if err != nil || trains <= 0 {
+		fmt.Fprintln(os.Stderr, "Error: number of trains is not a valid positive integer")
+		os.Exit(1)
+	}
 
-	//Handle arguments
-	start, _ := strconv.Atoi(os.Args[2]) // now works is station is given like a number, but needs to handle names
-	end, _ := strconv.Atoi(os.Args[3])    // now works is station is given like a number, but needs to handle names
-	trains, _ := strconv.Atoi(os.Args[4])
+	fmt.Printf(
+		" %s,  %s,  %s,  %d\n",
+		filepath, startName, endName, trains,
+	)
 
-	//finds all possible paths, with totally different in between stations and sorts them from shortest to longest
-	paths := paths.PathFinder(stationsGraph, start, end)
-	
-	//writes out paths to a file acording to how many trains
-	//Incomplete, Should write in columns and acording when train is sent. row represents a turn
-	moves.MoveTrains(paths, idToStations, trains)
-	
-	//maybe here print out the train_turns file?
+	// Parse map
+	stationsGraph, idToStations, stationsToId, err := helpers.ParseMap(filepath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing map: %v\n", err)
+		os.Exit(1)
+	}
 
+	// Validate start & end stations
+	start, ok := stationsToId[startName]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Error: start station %q does not exist\n", startName)
+		os.Exit(1)
+	}
+
+	end, ok := stationsToId[endName]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Error: end station %q does not exist\n", endName)
+		os.Exit(1)
+	}
+
+	// Find paths
+	allPaths := paths.PathFinder(stationsGraph, start, end)
+	if len(allPaths) == 0 {
+		fmt.Fprintln(os.Stderr, "Error: no path between the start and end stations")
+		os.Exit(1)
+	}
+
+	// Move trains
+	moves.MoveTrains(allPaths, idToStations, trains)
 }
+
