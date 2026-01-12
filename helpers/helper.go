@@ -5,15 +5,15 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
 // ParseMap reads a map file and returns:
-// 1. stationGraph: adjacency list of the graph ([][]int)
+// 1. stationGraph: adjacency list of the graph
 // 2. idToStations: mapping from int ID → station name
 // 3. stationsToId: mapping from station name → int ID
 func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
-	// Read file
 	data, err := os.ReadFile(mapFile)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to read map file: %w", err)
@@ -21,7 +21,7 @@ func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 
 	content := string(data)
 
-	// Split stations and connections sections
+	// Split stations and connections
 	idx := strings.Index(content, "connections:")
 	if idx == -1 {
 		return nil, nil, nil, fmt.Errorf("invalid map format: missing connections section")
@@ -30,37 +30,106 @@ func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 	stationsStr := content[:idx]
 	connectionsStr := content[idx+len("connections:"):]
 
-	// Regex to parse station info: name,x,y
-	reStation := regexp.MustCompile(`([A-Za-z0-9_]+)\s*,\s*(\d+)\s*,\s*(\d+)`)
-	matches := reStation.FindAllStringSubmatch(stationsStr, -1)
-
 	idToStations := make(map[int]string)
 	stationsToId := make(map[string]int)
+	coordMap := make(map[[2]int]string) // detect duplicate coordinates
 
-	for i, match := range matches {
-		station := match[1]
-		idToStations := idToStations
-		idToStations[i] = station
-		stationsToId[station] = i
+	// Parse stations STRICTLY line-by-line:
+	// - skip empty lines, comments, and "stations:"
+	// - any other line must match the full station pattern or error
+	// Anchors ^ and $ ensure we validate the whole line, not a substring. [web:46][web:32]
+	reStationLine := regexp.MustCompile(`^([A-Za-z0-9_]+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:#.*)?$`)
+
+	for _, line := range strings.Split(stationsStr, "\n") {
+		line = strings.TrimSpace(line) // TrimSpace removes leading/trailing whitespace. [web:10]
+		if line == "" || strings.HasPrefix(line, "#") || line == "stations:" {
+			continue
+		}
+
+		m := reStationLine.FindStringSubmatch(line)
+		if m == nil {
+			// This makes cases like "waterloo!" fail as "invalid station name" instead of being skipped.
+			return nil, nil, nil, fmt.Errorf("invalid station name")
+		}
+
+		station := m[1]
+
+		// Duplicate station names
+		if _, exists := stationsToId[station]; exists {
+			return nil, nil, nil, fmt.Errorf("duplicate station name %q", station)
+		}
+
+		// Parse and validate coordinates (positive integers only)
+		x, err1 := strconv.Atoi(m[2])
+		y, err2 := strconv.Atoi(m[3])
+		if err1 != nil || err2 != nil || x <= 0 || y <= 0 {
+			return nil, nil, nil, fmt.Errorf("invalid coordinates for station %q", station)
+		}
+
+		// Duplicate coordinates
+		coord := [2]int{x, y}
+		if other, exists := coordMap[coord]; exists {
+			return nil, nil, nil, fmt.Errorf("stations %q and %q share the same coordinates", station, other)
+		}
+		coordMap[coord] = station
+
+		// Assign IDs in encounter order
+		id := len(idToStations)
+		idToStations[id] = station
+		stationsToId[station] = id
 	}
 
 	// Create adjacency list
-	stationGraph := make([][]int, len(matches))
+	stationGraph := make([][]int, len(idToStations))
 
-	// Regex to parse connections: A-B
-	reConn := regexp.MustCompile(`([A-Za-z0-9_]+)\s*-\s*([A-Za-z0-9_]+)`)
-	connMatches := reConn.FindAllStringSubmatch(connectionsStr, -1)
+	// Parse connections STRICTLY line-by-line:
+	// - skip empty lines and comments
+	// - any other line must match A-B (+ optional trailing #comment) or error
+	reConnLine := regexp.MustCompile(`^([A-Za-z0-9_]+)\s*-\s*([A-Za-z0-9_]+)\s*(?:#.*)?$`)
 
-	for _, match := range connMatches {
-		s1 := stationsToId[match[1]]
-		s2 := stationsToId[match[2]]
+	seenEdges := make(map[[2]int]bool) // detect duplicates (incl reverse)
 
-		// Append connection if not already in slice
-		if !slices.Contains(stationGraph[s1], s2) {
-			stationGraph[s1] = append(stationGraph[s1], s2)
+	for _, line := range strings.Split(connectionsStr, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
 		}
-		if !slices.Contains(stationGraph[s2], s1) {
-			stationGraph[s2] = append(stationGraph[s2], s1)
+
+		m := reConnLine.FindStringSubmatch(line)
+		if m == nil {
+			return nil, nil, nil, fmt.Errorf("invalid connection")
+		}
+
+		fromName := m[1]
+		toName := m[2]
+
+		a, okA := stationsToId[fromName]
+		b, okB := stationsToId[toName]
+
+		// Connection references non-existent station
+		if !okA {
+			return nil, nil, nil, fmt.Errorf("connection references unknown station %q", fromName)
+		}
+		if !okB {
+			return nil, nil, nil, fmt.Errorf("connection references unknown station %q", toName)
+		}
+
+		// Duplicate connections (including reverse)
+		key := [2]int{a, b}
+		if a > b {
+			key = [2]int{b, a} // normalize
+		}
+		if seenEdges[key] {
+			return nil, nil, nil, fmt.Errorf("duplicate connection between %q and %q", fromName, toName)
+		}
+		seenEdges[key] = true
+
+		// Add to adjacency list (undirected)
+		if !slices.Contains(stationGraph[a], b) { // slices.Contains reports membership. [web:48]
+			stationGraph[a] = append(stationGraph[a], b)
+		}
+		if !slices.Contains(stationGraph[b], a) { // slices.Contains reports membership. [web:48]
+			stationGraph[b] = append(stationGraph[b], a)
 		}
 	}
 

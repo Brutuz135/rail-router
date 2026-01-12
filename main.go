@@ -30,8 +30,8 @@ func main() {
 	}
 
 	fmt.Printf(
-		" %s,  %s,  %s,  %d\n",
-		filepath, startName, endName, trains,
+		"%s,  %s,  %d\n",
+		startName, endName, trains,
 	)
 
 	// Parse map
@@ -54,6 +54,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Check if start and end are the same
+	if start == end {
+		fmt.Fprintf(os.Stderr, "Error: start and end station are the same")
+		os.Exit(1)
+	}
+
 	// Find paths
 	allPaths := paths.PathFinder(stationsGraph, start, end)
 	if len(allPaths) == 0 {
@@ -64,4 +70,3 @@ func main() {
 	// Move trains
 	moves.MoveTrains(allPaths, idToStations, trains)
 }
-
