@@ -34,27 +34,24 @@ func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 	stationsToId := make(map[string]int)
 	coordMap := make(map[[2]int]string) // detect duplicate coordinates
 
-	// Parse stations STRICTLY line-by-line:
-	// - skip empty lines, comments, and "stations:"
-	// - any other line must match the full station pattern or error
-	// Anchors ^ and $ ensure we validate the whole line, not a substring. [web:46][web:32]
+	// Parse stations info: name,x,y STRICTLY line-by-line:
 	reStationLine := regexp.MustCompile(`^([A-Za-z0-9_]+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:#.*)?$`)
 
 	for _, line := range strings.Split(stationsStr, "\n") {
-		line = strings.TrimSpace(line) // TrimSpace removes leading/trailing whitespace. [web:10]
+		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") || line == "stations:" {
 			continue
 		}
 
+		// Detect invalid station names
 		m := reStationLine.FindStringSubmatch(line)
 		if m == nil {
-			// This makes cases like "waterloo!" fail as "invalid station name" instead of being skipped.
 			return nil, nil, nil, fmt.Errorf("invalid station name")
 		}
 
 		station := m[1]
 
-		// Duplicate station names
+		// Detect duplicate station names
 		if _, exists := stationsToId[station]; exists {
 			return nil, nil, nil, fmt.Errorf("duplicate station name %q", station)
 		}
@@ -66,7 +63,7 @@ func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 			return nil, nil, nil, fmt.Errorf("invalid coordinates for station %q", station)
 		}
 
-		// Duplicate coordinates
+		// Detect  duplicate coordinates
 		coord := [2]int{x, y}
 		if other, exists := coordMap[coord]; exists {
 			return nil, nil, nil, fmt.Errorf("stations %q and %q share the same coordinates", station, other)
@@ -82,9 +79,7 @@ func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 	// Create adjacency list
 	stationGraph := make([][]int, len(idToStations))
 
-	// Parse connections STRICTLY line-by-line:
-	// - skip empty lines and comments
-	// - any other line must match A-B (+ optional trailing #comment) or error
+	// Parse connections: A-B line-by-line: skip empty lines;
 	reConnLine := regexp.MustCompile(`^([A-Za-z0-9_]+)\s*-\s*([A-Za-z0-9_]+)\s*(?:#.*)?$`)
 
 	seenEdges := make(map[[2]int]bool) // detect duplicates (incl reverse)
@@ -125,14 +120,13 @@ func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 		seenEdges[key] = true
 
 		// Add to adjacency list (undirected)
-		if !slices.Contains(stationGraph[a], b) { // slices.Contains reports membership. [web:48]
+		if !slices.Contains(stationGraph[a], b) {
 			stationGraph[a] = append(stationGraph[a], b)
 		}
-		if !slices.Contains(stationGraph[b], a) { // slices.Contains reports membership. [web:48]
+		if !slices.Contains(stationGraph[b], a) {
 			stationGraph[b] = append(stationGraph[b], a)
 		}
 	}
 
 	return stationGraph, idToStations, stationsToId, nil
 }
-
