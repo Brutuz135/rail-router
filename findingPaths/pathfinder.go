@@ -7,29 +7,6 @@ import (
 func PathFinder(graph [][]int, start int, end int) [][]int {
 	var paths [][]int
 
-
-//just and old graph for testing, but this is how the connection graph looks like	
-/*graph := [][]int{
-    {5, 9, 1},      // 0: jungle connected to grasslands, farms, green_belt
-    {0, 2},         // 1: green_belt connected to jungle, village
-    {1, 3},         // 2: village connected to green_belt, mountain
-    {4, 2, 8, 9},   // 3: mountain connected to treetop, village, wetlands, farms
-    {3, 13},        // 4: treetop connected to mountain, desert
-    {0, 6},         // 5: grasslands connected to jungle, suburbs
-    {5, 7},         // 6: suburbs connected to grasslands, clouds
-    {6, 8},         // 7: clouds connected to suburbs, wetlands
-    {7, 13, 3},     // 8: wetlands connected to clouds, desert, mountain
-    {0, 10, 3},     // 9: farms connected to jungle, downtown, mountain
-    {9, 11},        // 10: downtown connected to farms, metropolis
-    {10, 12},       // 11: metropolis connected to downtown, industrial
-    {11, 13},       // 12: industrial connected to metropolis, desert
-    {12, 8, 4},     // 13: desert connected to industrial, wetlands, treetop
-}
-
-start := 0
-end := 13
-*/
-
 	// Find first shortest path from start to end.
 	path := bfs(graph, start, end)
 
@@ -66,11 +43,6 @@ func bfs(graph [][]int, start int, end int) []int {
 
 	nNodes := len(graph)
 	
-	
-    	// BFS data structures:
-    	// pq: queue of nodes to visit (FIFO).
-    	// visited: marks whether a node has been seen.
-    	// parrent: stores predecessor of each node in the BFS tree to reconstruct path.
 	var pq []int
 	var visited []bool
 	var parrent []int
