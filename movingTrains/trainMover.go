@@ -3,42 +3,66 @@ package moves
 import (
 	"fmt"
 	"os"
-	"strconv"
+	"sort"
+	"strings"
 )
 
-func MoveTrains(paths [][]int, IdToStations map[int]string, nTrains int) {
+type move struct {
+	train  int
+	target string
+}
 
-	//send trains trough shortes possible paths, until path is full
-	//writes paths to the file acording of how many train there are. Incomplete. Needed: write the path column by column and and start them from the specific row when the train is sent.
-	f, _ := os.Create("train_truns.txt")
-	defer f.Close()
+func MoveTrains(paths [][]int, idToStations map[int]string, nTrains int) {
+	if nTrains <= 0 || len(paths) == 0 {
+		return
+	}
 
-	// loop is going until there is no more trains to send
-	for i := 0; nTrains > i; {
+	// Assign trains to paths round-robin.
+	trainPath := make([]int, nTrains) // train i uses paths[trainPath[i]]
+	for i := 0; i < nTrains; i++ {
+		trainPath[i] = i % len(paths)
+	}
 
-		//range paths and work with them one by one
-		for _, path := range paths {
+	// Position = index in the path slice. Start at 0 (at the start station).
+	pos := make([]int, nTrains)
 
-			//checks if it would more efficient to not use the path in question. Needs to be checked, how does it work on different situations.
-			if len(path) > len(paths[0])*(nTrains-i) {
-				break
+	// Run turns until all trains reach the end (pos == len(path)-1).
+	for {
+		var turnMoves []move
+		done := 0
+
+		for ti := 0; ti < nTrains; ti++ {
+			p := paths[trainPath[ti]]
+			if pos[ti] >= len(p)-1 {
+				done++
+				continue
 			}
 
-			i++
-
-			//gives the train a number
-			train := "T" + strconv.Itoa(i+1)
-
-			// ranges trough a current path and writes it to the file with the train number
-			for _, station := range path {
-				str := train + " " + IdToStations[station] + "\n"
-				fmt.Fprint(f, str)
-			}
+			// Move one step forward.
+			pos[ti]++
+			stationID := p[pos[ti]]
+			turnMoves = append(turnMoves, move{
+				train:  ti + 1,
+				target: idToStations[stationID],
+			})
 		}
 
-		// if no more trains stop sending
-		if i >= nTrains {
+		if done == nTrains {
 			break
+		}
+
+		// Stable required output order: T1, T2, T3...
+		sort.Slice(turnMoves, func(i, j int) bool {
+			return turnMoves[i].train < turnMoves[j].train
+		}) // sort.Slice sorts using a less function. 
+
+		out := make([]string, 0, len(turnMoves))
+		for _, m := range turnMoves {
+			out = append(out, fmt.Sprintf("T%d-%s", m.train, m.target))
+		}
+		if len(out) > 0 {
+			fmt.Fprintln(os.Stdout, strings.Join(out, " "))
 		}
 	}
 }
+
