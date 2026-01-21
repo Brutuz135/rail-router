@@ -5,9 +5,9 @@ import (
 	"os"
 	"strconv"
 
-	paths "main/findingPaths"
-	helpers "main/helpers"
-	moves "main/movingTrains"
+	paths "stations/findingPaths"
+	helpers "stations/helpers"
+	moves "stations/movingTrains"
 )
 
 func main() {
@@ -29,10 +29,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf(
-		"%s,  %s,  %d\n",
-		startName, endName, trains,
-	)
+	// fmt.Printf(
+	// 	"%s,  %s,  %d\n",
+	// 	startName, endName, trains,
+	// )
 
 	// Parse map
 	stationsGraph, idToStations, stationsToId, err := helpers.ParseMap(filepath)
