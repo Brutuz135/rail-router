@@ -1,6 +1,8 @@
 package paths
 
 import (
+	"fmt"
+
 )
 
 	
@@ -16,21 +18,49 @@ func PathFinder(graph [][]int, start int, end int) [][]int {
 		paths = append(paths, path)
 
 		// Remove intermediate stations of this path from the graph
+		// Remove also possible connection between start and end
         	// (start and end are kept), so future paths cannot reuse them.
 		graph = ignoreUsedStations(graph, path)
+		fmt.Println(graph)
+
 
 		// Find next shortest path in the modified graph.
 		path = bfs(graph, start, end)
 	}
 
+
 	return paths
 }
 
 func ignoreUsedStations(graph [][]int, path []int) [][]int {
+	PathLen := len(path)
+	//if path is only start and end, remove the connection between them
+	if PathLen == 2 {
+		start := path[0]
+		end := path[1]
+		for i, connection := range graph[start] {
+			if connection == end {
+				row := graph[start]
+				row = append(row[:i], row[i+1:]...)
+				graph[start] = row
+			}
+		}	
+
+		for i, connection := range graph[end] {
+			if connection == start {
+				row := graph[end]
+				row = append(row[:i], row[i+1:]...)
+				graph[end] = row
+			}
+		}
+		fmt.Println(path)
+		fmt.Println(PathLen)
+	}
+
 	// For a found path, remove all internal stations (indices 1..len-2)
     	// from the graph by setting their adjacency lists to nil.
     	// This prevents using these stations in later paths.
-	for i := 1; i < len(path)-1; i++ {
+	for i := 1; i < PathLen-1; i++ {
 		station := path[i]
 		graph[station] = nil
 	}
@@ -90,6 +120,7 @@ func bfs(graph [][]int, start int, end int) []int {
 		}
 	
 	}
+
 
 
 	// If no path was found, return nil.
