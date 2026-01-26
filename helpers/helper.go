@@ -59,7 +59,7 @@ func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 		// Parse and validate coordinates (positive integers only)
 		x, err1 := strconv.Atoi(m[2])
 		y, err2 := strconv.Atoi(m[3])
-		if err1 != nil || err2 != nil || x <= 0 || y <= 0 {
+		if err1 != nil || err2 != nil || x < 0 || y < 0 {
 			return nil, nil, nil, fmt.Errorf("invalid coordinates for station %q", station)
 		}
 
