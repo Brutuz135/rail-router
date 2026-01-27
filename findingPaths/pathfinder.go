@@ -1,145 +1,168 @@
 package paths
 
-import (
-	"fmt"
+import "math"
 
-)
+// PathFinder finds a good set of vertex-disjoint-ish paths (greedy removal)
+// and retries by blocking edges of the first greedy path to escape bad first choices.
+func PathFinder(graph [][]int, start, end, trains int) [][]int {
+	// Base greedy solution
+	base := greedyDisjoint(copyGraph(graph), start, end)
+	if len(base) == 0 {
+		return nil
+	}
+	best := base
+	bestTurns := estimateTurns(best, trains)
 
-	
-func PathFinder(graph [][]int, start int, end int) [][]int {
-	var paths [][]int
+	// Try alternatives by blocking each edge of the first path
+	first := base[0]
+	for i := 0; i < len(first)-1; i++ {
+		u := first[i]
+		v := first[i+1]
 
-	// Find first shortest path from start to end.
-	path := bfs(graph, start, end)
+		g := copyGraph(graph)
+		removeUndirectedEdge(g, u, v)
 
-	// As long as a path is found:
-	for path != nil {
-		// Store this path.
-		paths = append(paths, path)
-
-		// Remove intermediate stations of this path from the graph
-		// Remove also possible connection between start and end
-        	// (start and end are kept), so future paths cannot reuse them.
-		graph = ignoreUsedStations(graph, path)
-		fmt.Println(graph)
-
-
-		// Find next shortest path in the modified graph.
-		path = bfs(graph, start, end)
+		cand := greedyDisjoint(g, start, end)
+		if len(cand) == 0 {
+			continue
+		}
+		turns := estimateTurns(cand, trains)
+		if turns < bestTurns {
+			bestTurns = turns
+			best = cand
+		}
 	}
 
+	return best
+}
 
+func greedyDisjoint(graph [][]int, start, end int) [][]int {
+	var paths [][]int
+	for {
+		p := bfs(graph, start, end)
+		if p == nil {
+			break
+		}
+		paths = append(paths, p)
+		// Keep start/end; remove intermediate nodes (vertex capacity heuristic)
+		for i := 1; i < len(p)-1; i++ {
+			graph[p[i]] = nil
+		}
+		// Also prevent infinite repeats on a direct edge start<->end
+		if len(p) == 2 {
+			removeUndirectedEdge(graph, p[0], p[1])
+		}
+	}
 	return paths
 }
 
-func ignoreUsedStations(graph [][]int, path []int) [][]int {
-	PathLen := len(path)
-	//if path is only start and end, remove the connection between them
-	if PathLen == 2 {
-		start := path[0]
-		end := path[1]
-		for i, connection := range graph[start] {
-			if connection == end {
-				row := graph[start]
-				row = append(row[:i], row[i+1:]...)
-				graph[start] = row
-			}
-		}	
+// estimateTurns: simple, effective heuristic for passing.
+// For each path length Li (edges), completion time if we load it with xi trains is Li+xi-1.
+// Greedy assign trains to minimize max completion time using "Li + assigned".
+func estimateTurns(paths [][]int, trains int) int {
+	if len(paths) == 0 {
+		return math.MaxInt
+	}
 
-		for i, connection := range graph[end] {
-			if connection == start {
-				row := graph[end]
-				row = append(row[:i], row[i+1:]...)
-				graph[end] = row
+	L := make([]int, len(paths))
+	for i, p := range paths {
+		L[i] = len(p) - 1 // edges
+	}
+
+	assigned := make([]int, len(paths))
+	maxT := 0
+
+	for t := 0; t < trains; t++ {
+		bestP := 0
+		bestCost := L[0] + assigned[0]
+		for p := 1; p < len(paths); p++ {
+			c := L[p] + assigned[p]
+			if c < bestCost {
+				bestCost = c
+				bestP = p
 			}
 		}
-		fmt.Println(path)
-		fmt.Println(PathLen)
+		assigned[bestP]++
+		ct := L[bestP] + assigned[bestP] - 1
+		if ct > maxT {
+			maxT = ct
+		}
 	}
 
-	// For a found path, remove all internal stations (indices 1..len-2)
-    	// from the graph by setting their adjacency lists to nil.
-    	// This prevents using these stations in later paths.
-	for i := 1; i < PathLen-1; i++ {
-		station := path[i]
-		graph[station] = nil
-	}
-	return graph
+	return maxT
 }
 
+func copyGraph(graph [][]int) [][]int {
+	g := make([][]int, len(graph))
+	for i := range graph {
+		if graph[i] == nil {
+			continue
+		}
+		g[i] = make([]int, len(graph[i]))
+		copy(g[i], graph[i])
+	}
+	return g
+}
 
+func removeUndirectedEdge(graph [][]int, a, b int) {
+	removeEdge(graph, a, b)
+	removeEdge(graph, b, a)
+}
 
-func bfs(graph [][]int, start int, end int) []int {
+func removeEdge(graph [][]int, from, to int) {
+	row := graph[from]
+	if row == nil {
+		return
+	}
+	out := row[:0]
+	for _, x := range row {
+		if x != to {
+			out = append(out, x)
+		}
+	}
+	// shrink
+	graph[from] = append([]int(nil), out...)
+}
 
-	nNodes := len(graph)
-	
-	var pq []int
-	var visited []bool
-	var parrent []int
-	var current int
-	pathFound := false
-	var path []int
-
-	// Initialize visited and parent slices for all nodes.
-	for range nNodes {
-		visited = append(visited, false)
-		parrent = append(parrent, -1)
+// Standard BFS shortest path (unweighted)
+func bfs(graph [][]int, start, end int) []int {
+	n := len(graph)
+	visited := make([]bool, n)
+	parent := make([]int, n)
+	for i := range parent {
+		parent[i] = -1
 	}
 
-	// Start BFS from the start node.	
-	pq = append(pq, start)
+	q := make([]int, 0, n)
+	q = append(q, start)
 	visited[start] = true
-	parrent[start] = -1
-	current = pq[0]
 
-	// Standard BFS loop while queue is not empty.
-	for len(pq) > 0 {
+	found := false
+	for len(q) > 0 {
+		cur := q[0]
+		q = q[1:]
 
-		// Take the node at the front of the queue.
-		current = pq[0]
-
-		// Explore all neighbours of the current node.
-		for _, neighbour := range graph[current] {
-
-			// If neighbour not visited yet, mark and enqueue it,
-            		// and record current as its parent.
-			if visited[neighbour] == false{
-				visited[neighbour] = true
-				parrent[neighbour] = current
-				pq = append(pq, neighbour)
-			}
-		}
-
-		// Pop the front element from the queue (move window by one).
-		pq = append(pq[:0], pq[1:]...)//take the current out of the priorityQueue
-
-		// If end node is reached, stop BFS.
-		if current == end {
-			pathFound = true
+		if cur == end {
+			found = true
 			break
 		}
-	
+		for _, nb := range graph[cur] {
+			if !visited[nb] {
+				visited[nb] = true
+				parent[nb] = cur
+				q = append(q, nb)
+			}
+		}
 	}
 
-
-
-	// If no path was found, return nil.
-	if pathFound == false{
+	if !found {
 		return nil
 	}
-	
-	// Reconstruct path from end back to start using the parent array.
-	cur := end
-	path = append(path, end)
-	for cur != start {
-		cur = parrent[cur]
-		// Prepend the parent node to the path slice.
-		path = append([]int{cur}, path...)
+
+	// reconstruct
+	path := []int{}
+	for v := end; v != -1; v = parent[v] {
+		path = append([]int{v}, path...)
 	}
 	return path
-
 }
-
-
-
-
