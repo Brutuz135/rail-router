@@ -272,7 +272,7 @@ small-00
 			}
 
 			//  Find Paths
-			allPaths := paths.PathFinder(graph, startID, endID)
+			allPaths := paths.PathFinder(graph, startID, endID, tc.NumTrains)
 
 			// ASSERT: Minimum Routes
 			if tc.MinRoutes > 0 {

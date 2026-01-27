@@ -61,7 +61,7 @@ func main() {
 	}
 
 	// Find paths
-	allPaths := paths.PathFinder(stationsGraph, start, end)
+	allPaths := paths.PathFinder(stationsGraph, start, end, trains)
 	if len(allPaths) == 0 {
 		fmt.Fprintln(os.Stderr, "Error: no path between the start and end stations")
 		os.Exit(1)
