@@ -2,164 +2,193 @@ package paths
 
 import "math"
 
-// PathFinder finds a good set of vertex-disjoint-ish paths (greedy removal)
-// and retries by blocking edges of the first greedy path to escape bad first choices.
+//Finds vertex-disjoint paths that minimize total turns 
+// by using greedy BFS with edge-blocking retry.
 func PathFinder(graph [][]int, start, end, trains int) [][]int {
-	// Base greedy solution
-	base := greedyDisjoint(copyGraph(graph), start, end)
-	if len(base) == 0 {
+	// Find initial set of paths using greedy approach
+	basePaths := greedyDisjoint(copyGraph(graph), start, end)
+	if len(basePaths) == 0 {
 		return nil
 	}
-	best := base
-	bestTurns := estimateTurns(best, trains)
+
+	bestPath := basePaths
+	bestTurns := estimateTurns(bestPath, trains)
 
 	// Try alternatives by blocking each edge of the first path
-	first := base[0]
-	for i := 0; i < len(first)-1; i++ {
-		u := first[i]
-		v := first[i+1]
+	firstPath := basePaths[0] // the first greedy path found
+	for i := 0; i < len(firstPath)-1; i++ {
+		fromStation := firstPath[i]
+		toStation := firstPath[i+1]
 
-		g := copyGraph(graph)
-		removeUndirectedEdge(g, u, v)
+		// Create modified graph without this edge
+		graphCopy := copyGraph(graph)
+		removeUndirectedEdge(graphCopy, fromStation, toStation)
 
-		cand := greedyDisjoint(g, start, end)
-		if len(cand) == 0 {
+		// Find paths without using the blocked edge
+		candidatePaths := greedyDisjoint(graphCopy, start, end)
+		if len(candidatePaths) == 0 {
 			continue
 		}
-		turns := estimateTurns(cand, trains)
+
+		// Keep this path set if it completes faster
+		turns := estimateTurns(candidatePaths, trains)
 		if turns < bestTurns {
 			bestTurns = turns
-			best = cand
+			bestPath = candidatePaths
 		}
 	}
 
-	return best
+	return bestPath
 }
 
 func greedyDisjoint(graph [][]int, start, end int) [][]int {
 	var paths [][]int
+
+	// Keep finding shortest paths until no more exist
 	for {
-		p := bfs(graph, start, end)
-		if p == nil {
+		shortestPath := bfs(graph, start, end)
+		if shortestPath == nil {
 			break
 		}
-		paths = append(paths, p)
-		// Keep start/end; remove intermediate nodes (vertex capacity heuristic)
-		for i := 1; i < len(p)-1; i++ {
-			graph[p[i]] = nil
+
+		// Save the found path
+		paths = append(paths, shortestPath)
+
+		// Block intermediate stations (not start/end) 
+		for i := 1; i < len(shortestPath)-1; i++ {
+			graph[shortestPath[i]] = nil
 		}
-		// Also prevent infinite repeats on a direct edge start<->end
-		if len(p) == 2 {
-			removeUndirectedEdge(graph, p[0], p[1])
+
+		// If the path is only a direct edge (start→end), remove the edge
+		if len(shortestPath) == 2 {
+			removeUndirectedEdge(graph, shortestPath[0], shortestPath[1])
 		}
 	}
 	return paths
 }
 
-// estimateTurns: simple, effective heuristic for passing.
-// For each path length Li (edges), completion time if we load it with xi trains is Li+xi-1.
-// Greedy assign trains to minimize max completion time using "Li + assigned".
+// Predicts how many turns are needed to move all trains using the given paths.
 func estimateTurns(paths [][]int, trains int) int {
 	if len(paths) == 0 {
 		return math.MaxInt
 	}
 
-	L := make([]int, len(paths))
-	for i, p := range paths {
-		L[i] = len(p) - 1 // edges
+	pathLengths := make([]int, len(paths))
+	for i, path := range paths {
+		pathLengths[i] = len(path) - 1 // edges
 	}
 
+	// Track how many trains assigned to each path
 	assigned := make([]int, len(paths))
-	maxT := 0
+	maxCompletionTime := 0
 
-	for t := 0; t < trains; t++ {
+	// Assign each train to the path with minimum cost
+	for trainNumber := 0; trainNumber < trains; trainNumber++ {
 		bestP := 0
-		bestCost := L[0] + assigned[0]
-		for p := 1; p < len(paths); p++ {
-			c := L[p] + assigned[p]
-			if c < bestCost {
-				bestCost = c
-				bestP = p
+		bestCost := pathLengths[0] + assigned[0]
+
+		// Find path with lowest cost (length + current load)
+		for path := 1; path < len(paths); path++ {
+			cost := pathLengths[path] + assigned[path]
+			if cost < bestCost {
+				bestCost = cost
+				bestP = path
 			}
 		}
+
+		// Assign train to best path
 		assigned[bestP]++
-		ct := L[bestP] + assigned[bestP] - 1
-		if ct > maxT {
-			maxT = ct
+
+		// Update maximum completion time
+		completionTime := pathLengths[bestP] + assigned[bestP] - 1 //Formula: (pathLength + trainsOnPath - 1)
+		if completionTime > maxCompletionTime {
+			maxCompletionTime = completionTime
 		}
 	}
 
-	return maxT
+	return maxCompletionTime
 }
 
+// Creates a deep copy of the adjacency list graph.
 func copyGraph(graph [][]int) [][]int {
-	g := make([][]int, len(graph))
+	graphCopy := make([][]int, len(graph))
 	for i := range graph {
 		if graph[i] == nil {
 			continue
 		}
-		g[i] = make([]int, len(graph[i]))
-		copy(g[i], graph[i])
+		graphCopy[i] = make([]int, len(graph[i]))
+		copy(graphCopy[i], graph[i])
 	}
-	return g
+	return graphCopy
 }
 
-func removeUndirectedEdge(graph [][]int, a, b int) {
-	removeEdge(graph, a, b)
-	removeEdge(graph, b, a)
+// removeUndirectedEdge removes the connection between two stations
+// in both directions (since the graph is undirected).
+func removeUndirectedEdge(graph [][]int, stationA, stationB int) {
+	removeEdge(graph, stationA, stationB)
+	removeEdge(graph, stationB, stationA)
 }
 
+// removeEdge removes a directed edge from 'from' to 'to' in the graph.
 func removeEdge(graph [][]int, from, to int) {
-	row := graph[from]
-	if row == nil {
+	adjacencyList := graph[from]
+	if adjacencyList == nil {
 		return
 	}
-	out := row[:0]
-	for _, x := range row {
-		if x != to {
-			out = append(out, x)
+
+	// Filter out the 'to' station from adjacency list
+	filetered := adjacencyList[:0]
+	for _, neighbor := range adjacencyList {
+		if neighbor != to {
+			filetered = append(filetered, neighbor)
 		}
 	}
-	// shrink
-	graph[from] = append([]int(nil), out...)
+
+	// Store the filtered list (reallocate to avoid aliasing)
+	graph[from] = append([]int(nil), filetered...)
 }
 
 // Standard BFS shortest path (unweighted)
 func bfs(graph [][]int, start, end int) []int {
-	n := len(graph)
-	visited := make([]bool, n)
-	parent := make([]int, n)
+	numNodes := len(graph)
+	visited := make([]bool, numNodes)
+	parent := make([]int, numNodes)
+
 	for i := range parent {
 		parent[i] = -1
 	}
 
-	q := make([]int, 0, n)
-	q = append(q, start)
+	// Queue for BFS (stores nodes to visit)
+	queue := make([]int, 0, numNodes)
+	queue = append(queue, start)
 	visited[start] = true
 
-	found := false
-	for len(q) > 0 {
-		cur := q[0]
-		q = q[1:]
+	pathFound := false
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:] // dequeue
 
-		if cur == end {
-			found = true
+		// Found the destination
+		if current == end {
+			pathFound = true
 			break
 		}
-		for _, nb := range graph[cur] {
+
+		// Explore all unvisited neighbors
+		for _, nb := range graph[current] {
 			if !visited[nb] {
 				visited[nb] = true
-				parent[nb] = cur
-				q = append(q, nb)
+				parent[nb] = current
+				queue = append(queue, nb)
 			}
 		}
 	}
 
-	if !found {
+	if !pathFound {
 		return nil
 	}
 
-	// reconstruct
+	// Reconstruct path from end to start using parent pointers
 	path := []int{}
 	for v := end; v != -1; v = parent[v] {
 		path = append([]int{v}, path...)
