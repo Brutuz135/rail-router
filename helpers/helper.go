@@ -16,15 +16,21 @@ import (
 func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 	data, err := os.ReadFile(mapFile)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to read map file: %w", err)
+		return nil, nil, nil, fmt.Errorf("\nfailed to read map file: %w", err)
 	}
 
 	content := string(data)
 
+	// Stations exist
+	if !strings.Contains(content, "stations:") {
+		return nil, nil, nil,
+			fmt.Errorf("invalid map format missing stations section")
+	}
+
 	// Split stations and connections
 	idx := strings.Index(content, "connections:")
 	if idx == -1 {
-		return nil, nil, nil, fmt.Errorf("invalid map format: missing connections section")
+		return nil, nil, nil, fmt.Errorf("invalid map format missing connections section")
 	}
 
 	stationsStr := content[:idx]
@@ -49,11 +55,11 @@ func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 			return nil, nil, nil, fmt.Errorf("invalid station name")
 		}
 
-		station := m[1]
+		station := strings.ToLower(m[1])
 
 		// Detect duplicate station names
 		if _, exists := stationsToId[station]; exists {
-			return nil, nil, nil, fmt.Errorf("duplicate station name %q", station)
+			return nil, nil, nil, fmt.Errorf("duplicate station name %q\n", station)
 		}
 
 		// Parse and validate coordinates (positive integers only)
@@ -76,6 +82,11 @@ func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 		stationsToId[station] = id
 	}
 
+	// Check for maximum station limit (10000)
+	if len(idToStations) > 10000 {
+		return nil, nil, nil, fmt.Errorf("map contains more than 10000 stations")
+	}
+
 	// Create adjacency list
 	stationGraph := make([][]int, len(idToStations))
 
@@ -95,8 +106,8 @@ func ParseMap(mapFile string) ([][]int, map[int]string, map[string]int, error) {
 			return nil, nil, nil, fmt.Errorf("invalid connection")
 		}
 
-		fromName := m[1]
-		toName := m[2]
+		fromName := strings.ToLower(m[1])
+		toName := strings.ToLower(m[2])
 
 		a, okA := stationsToId[fromName]
 		b, okB := stationsToId[toName]

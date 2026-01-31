@@ -13,7 +13,8 @@ import (
 func main() {
 	args := os.Args[1:]
 	if len(args) != 4 {
-		fmt.Fprintln(os.Stderr, "Error: incorrect number of command line arguments")
+		fmt.Fprintln(os.Stderr, `Error: go run . [path to file containing network map] [start station] [end station] [number of trains]
+\n`)
 		os.Exit(1)
 	}
 
@@ -28,11 +29,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Error: number of trains is not a valid positive integer")
 		os.Exit(1)
 	}
-
-	// fmt.Printf(
-	// 	"%s,  %s,  %d\n",
-	// 	startName, endName, trains,
-	// )
 
 	// Parse map
 	stationsGraph, idToStations, stationsToId, err := helpers.ParseMap(filepath)
@@ -56,7 +52,7 @@ func main() {
 
 	// Check if start and end are the same
 	if start == end {
-		fmt.Fprintf(os.Stderr, "Error: start and end station are the same")
+		fmt.Fprintf(os.Stderr, "Error: start and end station are the same\n")
 		os.Exit(1)
 	}
 
