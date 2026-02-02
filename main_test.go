@@ -242,6 +242,22 @@ small-00
 			NumTrains:    9,
 			MaxTurns:     8,
 		},
+		{
+			Name: "London 1 Train (Single Route)",
+			MapContent: `stations:
+waterloo,3,1
+victoria,6,7
+euston,11,23
+st_pancras,5,15
+connections:
+waterloo-victoria
+waterloo-euston
+st_pancras-euston
+victoria-st_pancras`,
+			StartStation: "waterloo",
+			EndStation:   "st_pancras",
+			NumTrains:    1,
+		},
 	}
 
 	for _, tc := range tests {
@@ -306,6 +322,15 @@ small-00
 			if testing.Verbose() {
 				t.Log("\n" + output)
 			}
+
+			validateMovements(
+				t,
+				output,
+				tc.StartStation,
+				tc.EndStation,
+				tc.NumTrains,
+			)
+
 			lines := strings.Split(output, "\n")
 
 			// Filter empty lines just in case
@@ -324,6 +349,10 @@ small-00
 				} else {
 					t.Logf("Success: Completed in %d turns (Limit: %d)", turnsTaken, tc.MaxTurns)
 				}
+			}
+
+			if tc.NumTrains == 1 && len(allPaths) != 1 {
+				t.Fatalf("Expected exactly 1 route, got %d", len(allPaths))
 			}
 		})
 	}
