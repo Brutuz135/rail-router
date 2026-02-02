@@ -13,8 +13,8 @@ import (
 func main() {
 	args := os.Args[1:]
 	if len(args) != 4 {
-		fmt.Fprintln(os.Stderr, `Error: go run . [path to file containing network map] [start station] [end station] [number of trains]
-\n`)
+		fmt.Fprintf(os.Stderr, "Error: expected 4 arguments, got %d\n", len(os.Args)-1)
+		fmt.Fprintln(os.Stderr, "Usage: go run . [path to file containing network map] [start station] [end station] [number of trains]")
 		os.Exit(1)
 	}
 
