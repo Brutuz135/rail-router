@@ -62,7 +62,8 @@ func parseStations(stationsStr string) (map[int]string, map[string]int, error) {
 	coordMap := make(map[[2]int]string) // detect duplicate coordinates
 
 	// Parse stations info: name,x,y
-	reStationLine := regexp.MustCompile(`^([A-Za-z0-9_]+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:#.*)?$`)
+	reStationLine := regexp.MustCompile(`^([A-Za-z0-9_]+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*(?:#.*)?$`)
+
 
 	for _, line := range strings.Split(stationsStr, "\n") {
 		line = strings.TrimSpace(line)
