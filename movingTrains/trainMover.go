@@ -1,33 +1,33 @@
 package moves
 
 import (
-	"fmt"
-	"os"
 	"sort"
-	"strings"
 )
 
-type move struct {
-	train  int
-	target string
+type Move struct {
+	Train  int
+	Target string
 }
 
-func MoveTrains(paths [][]int, idToStations map[int]string, nTrains int) {
+// MoveTrains generates the sequence of moves for nTrains
+func MoveTrains(paths [][]int, idToStations map[int]string, nTrains int) [][]Move {
 	if nTrains <= 0 || len(paths) == 0 {
-		return
+		return nil
 	}
 
-	// Sort paths by length so assignment is stable.
+	// Sort paths so shorter ones are preferred for assignment
 	sort.Slice(paths, func(i, j int) bool { return len(paths[i]) < len(paths[j]) })
 
-	// Cost-based assignment: pick path minimizing (pathLenEdges + alreadyAssigned)
+	// Precompute the number of edges in each path
 	pathEdges := make([]int, len(paths))
 	for i, p := range paths {
 		pathEdges[i] = len(p) - 1
 	}
 
+	// Assign each train to a path using a simple load‑balancing heuristic:
+	// cost = path length + number of trains already assigned to that path
 	assigned := make([]int, len(paths))
-	trainPath := make([]int, nTrains) // train i uses paths[trainPath[i]]
+	trainPath := make([]int, nTrains)
 
 	for t := 0; t < nTrains; t++ {
 		bestP := 0
@@ -43,9 +43,10 @@ func MoveTrains(paths [][]int, idToStations map[int]string, nTrains int) {
 		assigned[bestP]++
 	}
 
-	// Position = index in the path slice. Start at 0 (at the start station).
+	// Track each train's current position along its assigned path
 	pos := make([]int, nTrains)
 
+	// Normalize an edge so (A→B) and (B→A) are treated the same
 	edgeKey := func(a, b int) [2]int {
 		if a < b {
 			return [2]int{a, b}
@@ -53,81 +54,60 @@ func MoveTrains(paths [][]int, idToStations map[int]string, nTrains int) {
 		return [2]int{b, a}
 	}
 
+	var allTurns [][]Move
+
+	// Simulate movement until all trains reach their destination
 	for {
-		var turnMoves []move
+		var turnMoves []Move
 		done := 0
 
-		occupiedStation := make(map[int]bool) // intermediate stations only
-		usedEdge := make(map[[2]int]bool)     // each track can be used once per turn
+		// Intermediate stations occupied this turn
+		occupiedStation := make(map[int]bool)
+
+		// Tracks used this turn (to prevent collisions)
+		usedEdge := make(map[[2]int]bool)
 
 		for ti := 0; ti < nTrains; ti++ {
 			p := paths[trainPath[ti]]
-
-			// Train already at destination
 			if pos[ti] >= len(p)-1 {
 				done++
 				continue
 			}
-
 			curStation := p[pos[ti]]
 			nextPos := pos[ti] + 1
 			nextStation := p[nextPos]
 
-			// Rule: each track can only be used once per turn (undirected edge)
+			// Prevent two trains from using the same track in the same turn
 			ek := edgeKey(curStation, nextStation)
 			if usedEdge[ek] {
 				continue
 			}
 
-			// Rule: only one train per intermediate station per turn (end station unlimited)
+			// Prevent two trains from entering the same intermediate station
 			if nextPos != len(p)-1 {
 				if occupiedStation[nextStation] {
 					continue
 				}
 			}
 
-			// Apply move
+			// Train already at destination
 			pos[ti] = nextPos
 			usedEdge[ek] = true
+
 			if nextPos != len(p)-1 {
 				occupiedStation[nextStation] = true
 			}
 
-			turnMoves = append(turnMoves, move{
-				train:  ti + 1,
-				target: idToStations[nextStation],
+			turnMoves = append(turnMoves, Move{
+				Train:  ti + 1,
+				Target: idToStations[nextStation],
 			})
 		}
 
 		if done == nTrains {
 			break
 		}
-
-		// Stable output order: T1, T2, ...
-		sort.SliceStable(paths, func(i, j int) bool {
-			if len(paths[i]) != len(paths[j]) {
-				return len(paths[i]) < len(paths[j])
-			}
-			// tie-break: compare the full path
-			a, b := paths[i], paths[j]
-			m := len(a)
-			if len(b) < m {
-				m = len(b)
-			}
-			for k := 0; k < m; k++ {
-				if a[k] != b[k] {
-					return a[k] < b[k]
-				}
-			}
-			return len(a) < len(b)
-		})
-
-		out := make([]string, 0, len(turnMoves))
-		for _, m := range turnMoves {
-			out = append(out, fmt.Sprintf("T%d-%s", m.train, m.target))
-		}
-		if len(out) > 0 {
-			fmt.Fprintln(os.Stdout, strings.Join(out, " "))
-		}
+		allTurns = append(allTurns, turnMoves)
 	}
+	return allTurns
 }
