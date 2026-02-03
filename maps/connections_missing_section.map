@@ -1,0 +1,11 @@
+stations:
+# south stations
+waterloo  , 2 , 1
+victoria,6,7
+
+# north stations
+euston,11,23
+st_pancras,5,15 # international
+
+
+
