@@ -19,15 +19,22 @@ func FindTrainTurns(mapPath, startName, endName string, trains int) ([][]moves.M
 		return nil, fmt.Errorf("parsing map: %w", err)
 	}
 
-	// Validate start/end stations
+	// Validate start station
 	start, ok := stationsToId[startName]
-	end, ok2 := stationsToId[endName]
-	if !ok || !ok2 {
-		return nil, fmt.Errorf("start or end station does not exist")
+	if !ok {
+		return nil, fmt.Errorf("start station %q does not exist", startName)
 	}
+
+	// Validate end station
+	end, ok := stationsToId[endName]
+	if !ok {
+		return nil, fmt.Errorf("end station %q does not exist", endName)
+	}
+
+	// Validate start ≠ end
 	if start == end {
-		return nil, fmt.Errorf("start and end station are the same")
-	}
+		return nil, fmt.Errorf("start and end stations are the same")
+	}	
 
 	// Compute all possible paths through the graph.
 	allPaths := paths.PathFinder(graph, start, end, trains)

@@ -43,6 +43,7 @@ func assertError(t *testing.T, err error, stderr string) {
 // ────────────────────────────────────────────────────────────────
 
 func TestLondon_MultipleRoutes_2Trains(t *testing.T) {
+	// Test multiple trains on a map with multiple routes
 	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -59,6 +60,7 @@ func TestLondon_MultipleRoutes_2Trains(t *testing.T) {
 }
 
 func TestLondon_MultipleRoutes_3Trains(t *testing.T) {
+	// Test multiple trains on a map with several routes
 	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 3)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -79,6 +81,7 @@ func TestLondon_MultipleRoutes_3Trains(t *testing.T) {
 }
 
 func TestLondon_MultipleRoutes_4Trains(t *testing.T) {
+	// Test with 4 trains to ensure multiple routes are used
 	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 4)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -99,6 +102,7 @@ func TestLondon_MultipleRoutes_4Trains(t *testing.T) {
 }
 
 func TestLondon_MultipleRoutes_100Trains(t *testing.T) {
+	// Test many trains to ensure pathfinding scales
 	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 100)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -119,6 +123,7 @@ func TestLondon_MultipleRoutes_100Trains(t *testing.T) {
 }
 
 func TestLondon_SingleRoute_1Train(t *testing.T) {
+	// Test a single train on a map with only one route
 	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -156,79 +161,96 @@ func TestLondon_TrainMovementFormat(t *testing.T) {
 }
 
 // ────────────────────────────────────────────────────────────────
-//  CLI error‑handling tests
+//
+//	CLI error‑handling tests
+//
 // ────────────────────────────────────────────────────────────────
 func TestCLI_TooFewArgs(t *testing.T) {
+	//providing fewer arguments
 	stderr, err := runCLI("maps/london.map", "waterloo", "st_pancras")
 	assertError(t, err, stderr)
 }
 
 func TestCLI_TooManyArgs(t *testing.T) {
+	//providing extra arguments
 	stderr, err := runCLI("maps/london.map", "waterloo", "st_pancras", "2", "extra")
 	assertError(t, err, stderr)
 }
 
 func TestCLI_NonexistentStart(t *testing.T) {
+	//using a nonexistent start station
 	stderr, _ := runCLI("maps/london.map", "notarealstation", "st_pancras", "2")
-	assertContains(t, stderr, "start or end station does not exist")
+	assertContains(t, stderr, "does not exist")
 }
 
 func TestCLI_NonexistentEnd(t *testing.T) {
+	//using a nonexistent end station
 	stderr, _ := runCLI("maps/london.map", "waterloo", "notarealstation", "2")
-	assertContains(t, stderr, "start or end station does not exist")
+	assertContains(t, stderr, "does not exist")
 }
 
 func TestCLI_SameStartEnd(t *testing.T) {
+	//using same station for start and end
 	stderr, _ := runCLI("maps/london.map", "waterloo", "waterloo", "2")
-	assertContains(t, stderr, "start and end station are the same")
+	assertContains(t, stderr, "start and end stations are the same")
 }
 
 func TestCLI_NoPath(t *testing.T) {
+	//using a map file with no path between start and end
 	stderr, _ := runCLI("maps/nonexistentpath.map", "waterloo", "st_pancras", "2")
 	assertContains(t, stderr, "no path between the start and end stations")
 }
 
 func TestCLI_InvalidNumTrains(t *testing.T) {
+	//using an invalid number of trains
 	stderr, _ := runCLI("maps/london.map", "waterloo", "st_pancras", "-1")
 	assertContains(t, stderr, "number of trains is not a valid positive integer")
 }
 
 func TestCLI_InvalidCoordinates(t *testing.T) {
+	//using a map file with invalid coordinates
 	stderr, _ := runCLI("maps/invalid_coordinates.map", "waterloo", "st_pancras", "2")
 	assertContains(t, stderr, "invalid coordinates for station")
 }
 
 func TestCLI_DuplicateCoordinates(t *testing.T) {
+	//using a map file with duplicate coordinates
 	stderr, _ := runCLI("maps/duplicate_coordinates.map", "waterloo", "st_pancras", "2")
 	assertContains(t, stderr, "share the same coordinates")
 }
 
 func TestCLI_ConnectionToUnknownStation(t *testing.T) {
+	//using a map file with a connection to a nonexistent station
 	stderr, _ := runCLI("maps/nonexistent_station.map", "waterloo", "st_pancras", "2")
 	assertContains(t, stderr, "connection references unknown station")
 }
 
 func TestCLI_DuplicateStationNames(t *testing.T) {
+	//using a map file with duplicate station names
 	stderr, _ := runCLI("maps/duplicate_stations.map", "waterloo", "st_pancras", "2")
 	assertContains(t, stderr, "duplicate station name")
 }
 
 func TestCLI_InvalidStationNames(t *testing.T) {
+	//using a map file with invalid station names
 	stderr, _ := runCLI("maps/invalid_station_name.map", "waterloo", "st_pancras", "2")
 	assertContains(t, stderr, "invalid station name")
 }
 
 func TestCLI_MissingStationsSection(t *testing.T) {
+	//using a map file missing stations section
 	stderr, _ := runCLI("maps/station_missing_section.map", "waterloo", "st_pancras", "2")
 	assertContains(t, stderr, "missing stations section")
 }
 
 func TestCLI_MissingConnectionsSection(t *testing.T) {
+	// Using a map file missing connections section
 	stderr, _ := runCLI("maps/connections_missing_section.map", "waterloo", "st_pancras", "2")
 	assertContains(t, stderr, "missing connections section")
 }
 
 func TestCLI_TooManyStations(t *testing.T) {
+	// Using a large map to trigger the station limit error
 	stderr, _ := runCLI("maps/10k+_parallel.map", "waterloo", "st_pancras", "4")
 	assertContains(t, stderr, "map contains more than 10000 stations")
 }
