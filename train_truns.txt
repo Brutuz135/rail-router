@@ -1,6 +1,0 @@
-T2 waterloo
-T2 victoria
-T2 st_pancras
-T3 waterloo
-T3 euston
-T3 st_pancras
