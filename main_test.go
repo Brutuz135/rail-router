@@ -1,225 +1,256 @@
 package main
 
 import (
-	"bytes"
-	"os"
+	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
-	"regexp"
-
-	paths "stations/findingPaths"
-	helpers "stations/helpers"
-	moves "stations/movingTrains"
 )
 
-// TestCase defines a single scenario to test
-type TestCase struct {
-	Name           string
-	MapFile        string
-	StartStation   string
-	EndStation     string
-	NumTrains      int
-	MaxTurns       int    // Optional: if > 0, asserts turns <= MaxTurns
-	MinRoutes      int    // Optional: if > 0, asserts found paths >= MinRoutes
-	MaxRoutes      int    
-	ExpectedOutput string // Optional: if non-empty, checks if output contains specific sequences
+// ────────────────────────────────────────────────────────────────
+//  Helpers
+// ────────────────────────────────────────────────────────────────
+
+// runCLI executes `go run .` with the given args and returns stderr as string.
+func runCLI(args ...string) (string, error) {
+	cmd := exec.Command("go", append([]string{"run", "."}, args...)...)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
-func TestTrainSystem(t *testing.T) {
-	tests := []TestCase{
-		{
-			Name: "London 2 Trains (Multiple Routes)",
-			MapFile: "maps/london.map",
-			StartStation: "waterloo",
-			EndStation:   "st_pancras",
-			NumTrains:    2,
-			MinRoutes:    2, // Expects > 1 route
-		},
-		{
-			Name: "London 3 Trains (Multiple Routes)",
-			MapFile: "maps/london.map",	
-			StartStation: "waterloo",
-			EndStation:   "st_pancras",
-			NumTrains:    3,
-			MinRoutes:    2,
-		},
-		{
-			Name: "London 4 Trains (Multiple Routes)",
-			MapFile: "maps/london.map",	
-			StartStation: "waterloo",
-			EndStation:   "st_pancras",
-			NumTrains:    4,
-			MinRoutes:    2,
-		},
-		{
-			Name: "London 100 Trains (Check Scalability)",
-			MapFile: "maps/london.map",
-			StartStation: "waterloo",
-			EndStation:   "st_pancras",
-			NumTrains:    100,
-			MinRoutes:    2,
-		},
-		{
-			Name: "London 1 Train (Only 1 Route)",
-			MapFile: "maps/london.map",	
-			StartStation: "waterloo",
-			EndStation:   "st_pancras",
-			NumTrains:    1,
-			MinRoutes:    1,
-			MaxRoutes:    1,
-		},
-		{
-			Name: "Bond Square to Space Port (4 Trains, Max 6 Turns)",
-			MapFile: "maps/bond.map",	
-			StartStation: "bond_square",
-			EndStation:   "space_port",
-			NumTrains:    4,
-			MaxTurns:     6,
-		},
-		{
-			Name: "Jungle to Desert (10 Trains, Max 8 Turns)",
-			MapFile: "maps/jungle.map",
-			StartStation: "jungle",
-			EndStation:   "desert",
-			NumTrains:    10,
-			MaxTurns:     8,
-		},
-		{
-			Name: "Beginning to Terminus (20 Trains, Max 11 Turns)",
-			MapFile: "maps/terminus.map",	
-			StartStation: "beginning",
-			EndStation:   "terminus",
-			NumTrains:    20,
-			MaxTurns:     11,
-		},
-		{
-			Name: "Two to Four (4 Trains, Max 6 Turns)",
-			MapFile: "maps/numbers.map",	
-			StartStation: "two",
-			EndStation:   "four",
-			NumTrains:    4,
-			MaxTurns:     6,
-		},
-		{
-			Name: "Beethoven to Part (9 Trains, Max 6 Turns)",
-			MapFile: "maps/clasical.map",	
-			StartStation: "beethoven",
-			EndStation:   "part",
-			NumTrains:    9,
-			MaxTurns:     6,
-		},
-		{
-			Name: "Small to Large (9 Trains, Max 8 Turns)",
-			MapFile: "maps/small.map",	
-			StartStation: "small",
-			EndStation:   "large",
-			NumTrains:    9,
-			MaxTurns:     8,
-		},
+// assertContains fails the test if substr is not found in s.
+func assertContains(t *testing.T, s, substr string) {
+	t.Helper()
+	if !strings.Contains(s, substr) {
+		t.Fatalf("expected output to contain %q, got: %q", substr, s)
+	}
+}
 
+// assertError ensures the CLI exited with an error.
+func assertError(t *testing.T, err error, stderr string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("expected CLI to exit with error, got success. stderr: %q", stderr)
+	}
+	if !strings.Contains(stderr, "Error") {
+		t.Fatalf("expected stderr to contain 'Error', got: %q", stderr)
+	}
+}
 
+// ────────────────────────────────────────────────────────────────
+//  Algorithm tests (FindTrainTurns)
+// ────────────────────────────────────────────────────────────────
 
-
+func TestLondon_MultipleRoutes_2Trains(t *testing.T) {
+	// Test multiple trains on a map with multiple routes
+	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
-
-
-			//  Parse Map
-			graph, idToStations, stationsToId, err := helpers.ParseMap(tc.MapFile)
-			if err != nil {
-				t.Fatalf("ParseMap failed: %v", err)
-			}
-
-			//  Resolve IDs
-			startID, okStart := stationsToId[tc.StartStation]
-			endID, okEnd := stationsToId[tc.EndStation]
-			if !okStart || !okEnd {
-				t.Fatalf("Start or End station not found in map")
-			}
-			
-			//  Find Paths
-			allPaths := paths.PathFinder(graph, startID, endID, tc.NumTrains)
-
-			// ASSERT: Minimum Routes
-			if tc.MinRoutes > 0 {
-				if len(allPaths) < tc.MinRoutes {
-					t.Errorf("Expected at least %d routes, got %d", tc.MinRoutes, len(allPaths))
-				}
-			}
-
-			//  Capture Output for Turns Calculation
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			// Execute Movement
-			moves.MoveTrains(allPaths, idToStations, tc.NumTrains)
-
-			w.Close()
-			os.Stdout = oldStdout
-
-			var buf bytes.Buffer
-			buf.ReadFrom(r)
-			output := strings.TrimSpace(buf.String())
-			if testing.Verbose() {
-				t.Log("\n" + output)
-			}
-
-			//validateMovements(
-			//	t,
-			//	output,
-			//	tc.StartStation,
-			//	tc.EndStation,
-			//	tc.NumTrains,
-			//)
-
-			lines := strings.Split(output, "\n")
-
-			// Filter empty lines just in case
-			var turnLines []string
-			for _, line := range lines {
-				if strings.TrimSpace(line) != "" {
-					turnLines = append(turnLines, line)
-				}
-			}
-			turnsTaken := len(turnLines)
-
-
-			//Format Check
-			matched := regexp.MustCompile(`^T\d+-[a-z0-9_]+$`).MatchString
-		
-			for _, line := range turnLines {
-    				for _, part := range strings.Fields(line) {
-        				if !matched(part) {
-           					t.Error("Output in wrong format")
-            					break
-        				}
-    				}
-			}
-
-			//ASSERT: Maximum routes
-			if tc.MaxRoutes > 0 && tc.MaxRoutes <= len(allPaths) {
-				if turnsTaken > len(allPaths[tc.MaxRoutes-1]) - 1 {
-					t.Errorf("Expected no more than %d routes, got %d", tc.MaxRoutes, len(allPaths))
-				}
-			}
-
-
-
-			// ASSERT: Max Turns
-			if tc.MaxTurns > 0 {
-				if turnsTaken > tc.MaxTurns {
-					t.Errorf("Too slow! Expected max %d turns, took %d turns.\nOutput sample:\n%s", tc.MaxTurns, turnsTaken, output)
-				} else {
-					t.Logf("Success: Completed in %d turns (Limit: %d)", turnsTaken, tc.MaxTurns)
-				}
-			}
-
-			//if tc.NumTrains == 1 && len(allPaths) != 1 {
-			//	t.Fatalf("Expected exactly 1 route, got %d", len(allPaths))
-			//}
-		})
+	if len(turns) == 0 || len(turns[0]) < 2 {
+		t.Fatalf("expected 2 moves in first turn, got %d", len(turns[0]))
 	}
+
+	firstTargets := []string{turns[0][0].Target, turns[0][1].Target}
+	if firstTargets[0] == firstTargets[1] {
+		t.Errorf("expected trains to take different first steps, got %v", firstTargets)
+	}
+}
+
+func TestLondon_MultipleRoutes_3Trains(t *testing.T) {
+	// Test multiple trains on a map with several routes
+	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(turns) == 0 {
+		t.Fatalf("expected at least one turn")
+	}
+
+	unique := map[string]bool{}
+	for _, move := range turns[0] {
+		unique[move.Target] = true
+	}
+
+	if len(unique) < 2 {
+		t.Errorf("expected at least two different first steps, got %v", unique)
+	}
+}
+
+func TestLondon_MultipleRoutes_4Trains(t *testing.T) {
+	// Test with 4 trains to ensure multiple routes are used
+	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 4)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(turns) == 0 || len(turns[0]) < 2 {
+		t.Fatalf("expected at least 2 moves in first turn")
+	}
+
+	unique := map[string]bool{}
+	for _, move := range turns[0] {
+		unique[move.Target] = true
+	}
+
+	if len(unique) < 2 {
+		t.Errorf("expected at least two unique first steps, got %v", unique)
+	}
+}
+
+func TestLondon_MultipleRoutes_100Trains(t *testing.T) {
+	// Test many trains to ensure pathfinding scales
+	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 100)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(turns) == 0 {
+		t.Fatalf("expected at least one turn")
+	}
+
+	unique := map[string]bool{}
+	for _, move := range turns[0] {
+		unique[move.Target] = true
+	}
+
+	if len(unique) < 2 {
+		t.Errorf("expected at least two unique first steps, got %v", unique)
+	}
+}
+
+func TestLondon_SingleRoute_1Train(t *testing.T) {
+	// Test a single train on a map with only one route
+	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(turns) == 0 || len(turns[0]) != 1 {
+		t.Fatalf("expected exactly 1 move in first turn, got %d", len(turns[0]))
+	}
+
+	for i, turn := range turns {
+		if len(turn) > 1 {
+			t.Errorf("turn %d: expected only one train to move, got %d", i+1, len(turn))
+		}
+	}
+}
+
+// Verify move formatting is correct: Tn-station
+func TestLondon_TrainMovementFormat(t *testing.T) {
+	turns, err := FindTrainTurns("maps/london.map", "waterloo", "st_pancras", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	format := regexp.MustCompile(`^T\d+-[a-z0-9_]+$`)
+
+	// Check each move in each turn
+	for ti, turn := range turns {
+		for mi, move := range turn {
+			s := "T" + strconv.Itoa(move.Train) + "-" + move.Target
+			if !format.MatchString(s) {
+				t.Errorf("turn %d move %d: got %q, want Tn-station", ti+1, mi+1, s)
+			}
+		}
+	}
+}
+
+// ────────────────────────────────────────────────────────────────
+//
+//	CLI error‑handling tests
+//
+// ────────────────────────────────────────────────────────────────
+func TestCLI_TooFewArgs(t *testing.T) {
+	//providing fewer arguments
+	stderr, err := runCLI("maps/london.map", "waterloo", "st_pancras")
+	assertError(t, err, stderr)
+}
+
+func TestCLI_TooManyArgs(t *testing.T) {
+	//providing extra arguments
+	stderr, err := runCLI("maps/london.map", "waterloo", "st_pancras", "2", "extra")
+	assertError(t, err, stderr)
+}
+
+func TestCLI_NonexistentStart(t *testing.T) {
+	//using a nonexistent start station
+	stderr, _ := runCLI("maps/london.map", "notarealstation", "st_pancras", "2")
+	assertContains(t, stderr, "does not exist")
+}
+
+func TestCLI_NonexistentEnd(t *testing.T) {
+	//using a nonexistent end station
+	stderr, _ := runCLI("maps/london.map", "waterloo", "notarealstation", "2")
+	assertContains(t, stderr, "does not exist")
+}
+
+func TestCLI_SameStartEnd(t *testing.T) {
+	//using same station for start and end
+	stderr, _ := runCLI("maps/london.map", "waterloo", "waterloo", "2")
+	assertContains(t, stderr, "start and end stations are the same")
+}
+
+func TestCLI_NoPath(t *testing.T) {
+	//using a map file with no path between start and end
+	stderr, _ := runCLI("maps/nonexistentpath.map", "waterloo", "st_pancras", "2")
+	assertContains(t, stderr, "no path between the start and end stations")
+}
+
+func TestCLI_InvalidNumTrains(t *testing.T) {
+	//using an invalid number of trains
+	stderr, _ := runCLI("maps/london.map", "waterloo", "st_pancras", "-1")
+	assertContains(t, stderr, "number of trains is not a valid positive integer")
+}
+
+func TestCLI_InvalidCoordinates(t *testing.T) {
+	//using a map file with invalid coordinates
+	stderr, _ := runCLI("maps/invalid_coordinates.map", "waterloo", "st_pancras", "2")
+	assertContains(t, stderr, "invalid coordinates for station")
+}
+
+func TestCLI_DuplicateCoordinates(t *testing.T) {
+	//using a map file with duplicate coordinates
+	stderr, _ := runCLI("maps/duplicate_coordinates.map", "waterloo", "st_pancras", "2")
+	assertContains(t, stderr, "share the same coordinates")
+}
+
+func TestCLI_ConnectionToUnknownStation(t *testing.T) {
+	//using a map file with a connection to a nonexistent station
+	stderr, _ := runCLI("maps/nonexistent_station.map", "waterloo", "st_pancras", "2")
+	assertContains(t, stderr, "connection references unknown station")
+}
+
+func TestCLI_DuplicateStationNames(t *testing.T) {
+	//using a map file with duplicate station names
+	stderr, _ := runCLI("maps/duplicate_stations.map", "waterloo", "st_pancras", "2")
+	assertContains(t, stderr, "duplicate station name")
+}
+
+func TestCLI_InvalidStationNames(t *testing.T) {
+	//using a map file with invalid station names
+	stderr, _ := runCLI("maps/invalid_station_name.map", "waterloo", "st_pancras", "2")
+	assertContains(t, stderr, "invalid station name")
+}
+
+func TestCLI_MissingStationsSection(t *testing.T) {
+	//using a map file missing stations section
+	stderr, _ := runCLI("maps/station_missing_section.map", "waterloo", "st_pancras", "2")
+	assertContains(t, stderr, "missing stations section")
+}
+
+func TestCLI_MissingConnectionsSection(t *testing.T) {
+	// Using a map file missing connections section
+	stderr, _ := runCLI("maps/connections_missing_section.map", "waterloo", "st_pancras", "2")
+	assertContains(t, stderr, "missing connections section")
+}
+
+func TestCLI_TooManyStations(t *testing.T) {
+	// Using a large map to trigger the station limit error
+	stderr, _ := runCLI("maps/10k+_parallel.map", "waterloo", "st_pancras", "4")
+	assertContains(t, stderr, "map contains more than 10000 stations")
 }

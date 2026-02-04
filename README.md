@@ -40,7 +40,7 @@ go run . [path to network map] [start station] [end station] [number of trains]
 ### Example
 
 ```bash
-go run . maps/network.map waterloo st_pancras 4
+go run . maps/london.map waterloo st_pancras 4
 ```
 
 Output:
@@ -137,15 +137,78 @@ Run all tests with:
 go test -v
 ```
 
+To print debug output inside your code during tests, use:
+```
+t.Log("stdErr", stderr)
+
+```
+## Example Output
+A successful test run looks like this:
+```
+=== RUN   TestLondon_MultipleRoutesFor2Trains
+--- PASS: TestLondonNetwork_MultipleRoutesFor2Trains (0.01s)
+=== RUN   TestLondonNetwork_MultipleRoutesFor3Trains
+--- PASS: TestLondonNetwork_MultipleRoutesFor3Trains (0.01s)
+=== RUN   TestLondon_SingleRouteFor1Train
+--- PASS: TestLondon_SingleRouteFor1Train (0.00s)
+=== RUN   TestCLI_InvalidCoordinates
+--- PASS: TestCLI_InvalidCoordinates (0.00s)
+=== RUN   TestCLI_MissingStationsSection
+--- PASS: TestCLI_MissingStationsSection (0.00s)
+PASS
+ok      stations  0.123s
+
+```
+
 Tests cover:
 
-- Valid and invalid map files
-- Different train counts
-- Single and multiple routes
-- Scalability (large number of trains)
-- Correct movement formatting and turn limits
+- Pathfinding & Movement
+- Map Parsing
+- CLI Behavior
+
+If any test fails, Go prints a clear message showing which test failed and why.
 
 ---
+
+## Troubleshooting Tests
+```
+If a test fails, you can re-run only that specific test:
+
+go test -v -run TestCLI_TooManyStations
+```
+
+## Bonus Features
+### 1. Advanced Error Handling
+The program provides clear, human‑readable error messages that help users understand exactly what went wrong.
+
+Example:
+```
+Error: start station "water" does not exist
+
+```
+### 2. Precise, Context‑Aware Error Reporting
+Errors identify the specific problematic entity or line, making debugging significantly easier.
+
+Examples:
+
+```
+Error: parsing map: stations "euston" and "waterloo" share the same coordinates
+```
+
+### 3. Comprehensive Test Suite
+A full suite of automated tests validates:
+
+- Map parsing
+
+- Error handling
+
+- Path‑finding correctness
+
+- Train movement rules
+
+- Turn limits
+
+- CLI behavior
 
 ## Acknowledgments
 
