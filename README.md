@@ -40,7 +40,7 @@ go run . [path to network map] [start station] [end station] [number of trains]
 ### Example
 
 ```bash
-go run . maps/london.map waterloo st_pancras 4
+go run . maps/london.map waterloo st_pancras 2
 ```
 
 Output:
@@ -124,7 +124,6 @@ stations/
 ├── maps/
 │   └── network.map        # Example network map
 ├── main_test.go            # High-level integration tests
-├── train_system_test.go   # Train movement validation tests
 ```
 
 ---
