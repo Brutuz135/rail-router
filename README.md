@@ -105,7 +105,6 @@ Error parsing map: invalid map format: missing stations section
 # Invalid station name
 Error: start station "Waterloo" does not exist
 ```
-
 ---
 
 ## Project Structure
@@ -117,9 +116,9 @@ stations/
 ├── README.md
 ├── helpers/
 │   └── parse_map.go        # Map parsing & validation
-├── paths/
+├── findingPaths/
 │   └── path_finder.go      # Path finding logic
-├── moves/
+├── movingTrains/
 │   └── move_trains.go      # Train movement simulation
 ├── maps/
 │   └── network.map        # Example network map
